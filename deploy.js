@@ -15,7 +15,7 @@ const CONFIG = {
   PRIVATE_KEY: process.env.PRIVATE_KEY,
   ARTIFACT_PATH:
     process.env.CONTRACT_ARTIFACT ||
-    path.join(__dirname, "out", "PancakeArbFlashLoan.sol", "PancakeArbFlashLoan.json"),
+    path.join(__dirname, "out", "PancakeSwapBot.sol", "PancakeSwapBot.json"),
   GAS_BUFFER_PERCENT: Number(process.env.GAS_BUFFER_PERCENT || "20"),
   GAS_PRICE_GWEI: process.env.GAS_PRICE_GWEI || "",
   CONFIRMATIONS: Number(process.env.CONFIRMATIONS || "1"),
@@ -151,7 +151,7 @@ async function main() {
   const overrides = { gasLimit };
   if (gasPrice) overrides.gasPrice = gasPrice;
 
-  info("Deploying PancakeArbFlashLoan...");
+  info("Deploying PancakeSwapBot...");
   const deployment = await factory.deploy(...constructorArgs, overrides);
   const deployTx = deployment.deploymentTransaction();
 
