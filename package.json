@@ -1,0 +1,18 @@
+{
+  "name": "pancakeswapbot-deployer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deployment utility for PancakeArbFlashLoan on BSC mainnet",
+  "main": "deploy.js",
+  "scripts": {
+    "deploy": "node deploy.js",
+    "build": "forge build --force"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.2"
+  }
+}
