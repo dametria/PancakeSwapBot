@@ -79,7 +79,7 @@ function parseConstructorArgs(raw) {
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) {
-      fail("CONSTRUCTOR_ARGS must be a JSON array, e.g. [] or ["arg1", "arg2"].");
+      fail('CONSTRUCTOR_ARGS must be a JSON array, e.g. [] or ["arg1", "arg2"].');
     }
     return parsed;
   } catch (err) {
