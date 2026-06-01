@@ -215,12 +215,11 @@ async function main() {
   fs.writeFileSync(CONFIG.OUTPUT_FILE, JSON.stringify(deploymentRecord, null, 2));
   info(`Deployment record saved to: ${CONFIG.OUTPUT_FILE}`);
 
-  console.log("
-Next steps:");
+  console.log('Next steps:');
   console.log(`1. Put this contract address into your bot config: ${contractAddress}`);
-  console.log("2. Fund the bot/operator wallet with BNB for runtime gas.");
-  console.log("3. Verify the contract on BscScan if you want source-level verification.");
-  console.log("4. Run a separate test script for executeArbitrage — do not auto-trade from deploy.js.");
+  console.log('2. Fund the bot/operator wallet with BNB for runtime gas.');
+  console.log('3. Verify the contract on BscScan if you want source-level verification.');
+  console.log('4. Run a separate test script for executeArbitrage — do not auto-trade from deploy.js.');
 }
 
 main().catch((err) => {
