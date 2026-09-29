@@ -5,7 +5,9 @@ pragma solidity ^0.8.19;
  * PancakeSwap V2/V3 Flash-Loan Arbitrage Contract (hardened)
  * ──────────────────────────────────────────────────────────
  * Improvements over original:
- *  - ReentrancyGuard
+ *  - ReentrancyGuard on entry; in-flight flag on the flash-swap callback
+ *    (a V2 flash swap MUST re-enter the contract — a plain guard there
+ *    reverts every trade with "ReentrancyGuard: reentrant call")
  *  - Explicit slippage parameters (bps)
  *  - SafeERC20-style transfer/approve checks
  *  - Cleaner fee calculation + events
@@ -79,6 +81,13 @@ contract PancakeArbFlashLoan {
     uint256 private constant REENTRANCY_ENTERED = 2;
     uint256 private _status;
 
+    // True only while a flash-swap arbitrage is in flight. The V2 flash-swap
+    // callback legally re-enters the contract (the loan pair calls us while
+    // executeArbitrage is still on the stack), so pancakeCall can NOT use the
+    // ReentrancyGuard — it uses this flag instead, which an outside attacker
+    // cannot set.
+    bool private _inArb;
+
     // BSC Mainnet
     IPancakeV2Factory public constant FACTORY =
         IPancakeV2Factory(0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73);
@@ -89,6 +98,7 @@ contract PancakeArbFlashLoan {
 
     address public constant USDT = 0x55d398326f99059fF775485246999027B3197955;
     address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address public constant USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
 
     // ─── Events ──────────────────────────────────────────────────────────────
     event ArbitrageExecuted(
@@ -149,12 +159,16 @@ contract PancakeArbFlashLoan {
         uint256 minProfit,
         uint256 slippageBps
     ) external onlyOwner nonReentrant {
-        require(tokenIn != address(0) && tokenIn != USDT, "Bad tokenIn");
+        require(tokenIn != address(0) && tokenIn != USDT && tokenIn != USDC, "Bad tokenIn");
         require(loanAmount > 0, "Zero loan");
         require(slippageBps <= 500, "Slippage too high"); // safety cap 5 %
 
-        address pair = FACTORY.getPair(USDT, tokenIn);
-        require(pair != address(0), "No V2 pair");
+        // CRITICAL: flash-borrow from the NEUTRAL USDT/USDC pair — never from the
+        // USDT/tokenIn pair being arbitraged. Borrowing from the arb pair makes the
+        // V2 leg re-enter a pair that is still reentrancy-locked by the flash swap,
+        // and the whole tx reverts with "Pancake: LOCKED".
+        address pair = FACTORY.getPair(USDT, USDC);
+        require(pair != address(0), "No loan pair");
 
         bytes memory data = abi.encode(
             tokenIn,
@@ -172,7 +186,9 @@ contract PancakeArbFlashLoan {
         uint256 out0 = (t0 == USDT) ? loanAmount : 0;
         uint256 out1 = (t0 == USDT) ? 0 : loanAmount;
 
+        _inArb = true;
         loanPair.swap(out0, out1, address(this), data);
+        _inArb = false;
     }
 
     // ─── Pancake V2 flash-swap callback ──────────────────────────────────────
@@ -181,7 +197,7 @@ contract PancakeArbFlashLoan {
         uint256 /*amount0*/,
         uint256 /*amount1*/,
         bytes calldata data
-    ) external nonReentrant {
+    ) external {
         (
             address tokenIn,
             uint256 loanAmount,
@@ -192,8 +208,11 @@ contract PancakeArbFlashLoan {
             address caller
         ) = abi.decode(data, (address, uint256, bool, uint24, uint256, uint256, address));
 
-        // Security checks
-        address pair = FACTORY.getPair(USDT, tokenIn);
+        // Security checks — may only run while an arbitrage initiated by the
+        // owner is in flight, and only when called by the USDT/USDC loan pair.
+        // NOTE: no nonReentrant here — the flash swap must re-enter (see _inArb).
+        require(_inArb, "No arb in progress");
+        address pair = FACTORY.getPair(USDT, USDC);
         require(msg.sender == pair, "Unauthorized callback");
         require(caller == owner, "Not owner");
 
@@ -351,4 +370,4 @@ contract PancakeArbFlashLoan {
 
     // Accept any leftover BNB
     receive() external payable {}
-} 
+}
